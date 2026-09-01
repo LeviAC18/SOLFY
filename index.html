@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Solfy 2.0 - Gerador Inteligente de Leitura Musical</title>
+    <link rel="stylesheet" href="style.css">
+    
+    <!-- OpenSheetMusicDisplay (OSMD) Motor de Renderização de Partitura -->
+    <script src="https://unpkg.com/opensheetmusicdisplay@1.8.6/build/opensheetmusicdisplay.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+    
+    <!-- html2pdf para Exportação Vetorial de PDF -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+    
+    <!-- Fonte Poppins -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+
+    <!-- Menu Mobile Toggle -->
+    <button id="mobile-menu-btn" class="mobile-only" aria-label="Abrir Opções">☰ Solfy</button>
+    
+    <!-- Overlay de Fundo Mobile -->
+    <div id="sidebar-overlay" class="sidebar-overlay"></div>
+
+    <div class="app-container">
+        <!-- BARRA LATERAL DE CONFIGURAÇÕES -->
+        <aside class="sidebar" id="sidebar">
+            <div class="sidebar-header">
+                <h2>SOLFY </h2>
+                <button id="close-sidebar" class="mobile-only" aria-label="Fechar Opções">✕</button>
+            </div>
+
+            <div class="settings-content">
+                <!-- NÍVEL DE DIFICULDADE -->
+                <section class="config-section">
+                    <h3>🎯 Nível de Dificuldade</h3>
+                    <div class="select-wrapper">
+                        <select id="difficulty" class="custom-select">
+                            <option value="very_easy">Muito Fácil (Passo a passo, sem saltos)</option>
+                            <option value="easy" selected>Fácil (Frases claras, ritmos simples)</option>
+                            <option value="intermediate">Intermediário (Passagens, saltos moderados)</option>
+                            <option value="advanced">Avançado (Síncopes, aproximações)</option>
+                            <option value="very_advanced">Muito Avançado (Cromatismos, riqueza rítmica)</option>
+                        </select>
+                    </div>
+                </section>
+
+                <!-- CLAVES E OITAVAS -->
+                <section class="config-section">
+                    <h3>🎹 Claves e Oitavas</h3>
+                    <div class="control-group">
+                        <label class="styled-label">
+                            <input type="radio" name="clef" value="sol" checked> <span>Clave de Sol</span>
+                        </label>
+                        <label class="styled-label">
+                            <input type="radio" name="clef" value="fa"> <span>Clave de Fá</span>
+                        </label>
+                    </div>
+                    
+                    <div id="octaves-accordion" class="accordion-container">
+                        <div id="octaves-sol" class="checkbox-grid mt-2">
+                            <label class="styled-label"><input type="checkbox" class="octave-cb" value="3" checked> <span>Oit. 3</span></label>
+                            <label class="styled-label"><input type="checkbox" class="octave-cb" value="4" checked> <span>Oit. 4</span></label>
+                            <label class="styled-label"><input type="checkbox" class="octave-cb" value="5"> <span>Oit. 5</span></label>
+                            <label class="styled-label"><input type="checkbox" class="octave-cb" value="6"> <span>Oit. 6</span></label>
+                        </div>
+                        <div id="octaves-fa" class="checkbox-grid mt-2 hidden">
+                            <label class="styled-label"><input type="checkbox" class="octave-cb" value="1"> <span>Oit. 1</span></label>
+                            <label class="styled-label"><input type="checkbox" class="octave-cb" value="2" checked> <span>Oit. 2</span></label>
+                            <label class="styled-label"><input type="checkbox" class="octave-cb" value="3" checked> <span>Oit. 3</span></label>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- NOTAS PERMITIDAS -->
+                <section class="config-section">
+                    <h3>🎼 Notas Permitidas</h3>
+                    <div class="checkbox-grid">
+                        <label class="styled-label"><input type="checkbox" class="note-cb" value="C" checked> <span>Dó</span></label>
+                        <label class="styled-label"><input type="checkbox" class="note-cb" value="D" checked> <span>Ré</span></label>
+                        <label class="styled-label"><input type="checkbox" class="note-cb" value="E" checked> <span>Mi</span></label>
+                        <label class="styled-label"><input type="checkbox" class="note-cb" value="F" checked> <span>Fá</span></label>
+                        <label class="styled-label"><input type="checkbox" class="note-cb" value="G" checked> <span>Sol</span></label>
+                        <label class="styled-label"><input type="checkbox" class="note-cb" value="A" checked> <span>Lá</span></label>
+                        <label class="styled-label"><input type="checkbox" class="note-cb" value="B" checked> <span>Si</span></label>
+                    </div>
+                </section>
+
+                <!-- TONALIDADE -->
+                <section class="config-section">
+                    <h3>🎵 Tonalidade</h3>
+                    <select id="key-signature" class="custom-select">
+                        <option value="C" selected>Dó maior (C)</option>
+                        <option value="G">Sol maior (G)</option>
+                        <option value="D">Ré maior (D)</option>
+                        <option value="A">Lá maior (A)</option>
+                        <option value="E">Mi maior (E)</option>
+                        <option value="B">Si maior (B)</option>
+                        <option value="F#">Fá# maior (F#)</option>
+                        <option value="C#">Dó# maior (C#)</option>
+                        <option value="F">Fá maior (F)</option>
+                        <option value="Bb">Sib maior (Bb)</option>
+                        <option value="Eb">Mib maior (Eb)</option>
+                        <option value="Ab">Láb maior (Ab)</option>
+                    </select>
+                </section>
+
+                <!-- FIGURAS RÍTMICAS -->
+                <section class="config-section">
+                    <h3>♫ Figuras Rítmicas</h3>
+                    <div class="checkbox-list">
+                        <label class="styled-label"><input type="checkbox" class="rhythm-cb" value="4"> <span>Semibreve</span></label>
+                        <label class="styled-label"><input type="checkbox" class="rhythm-cb" value="2" checked> <span>Mínima</span></label>
+                        <label class="styled-label"><input type="checkbox" class="rhythm-cb" value="1" checked> <span>Semínima</span></label>
+                        <label class="styled-label"><input type="checkbox" class="rhythm-cb" value="0.5" checked> <span>Colcheia</span></label>
+                        <label class="styled-label"><input type="checkbox" class="rhythm-cb" value="0.25"> <span>Semicolcheia</span></label>
+                    </div>
+                </section>
+
+                <!-- PAUSAS RÍTMICAS -->
+                <section class="config-section">
+                    <h3>⏸ Pausas Rítmicas</h3>
+                    <div class="checkbox-list">
+                        <label class="styled-label"><input type="checkbox" class="rest-cb" value="4"> <span>Pausa de Semibreve</span></label>
+                        <label class="styled-label"><input type="checkbox" class="rest-cb" value="2"> <span>Pausa de Mínima</span></label>
+                        <label class="styled-label"><input type="checkbox" class="rest-cb" value="1" checked> <span>Pausa de Semínima</span></label>
+                        <label class="styled-label"><input type="checkbox" class="rest-cb" value="0.5"> <span>Pausa de Colcheia</span></label>
+                        <label class="styled-label"><input type="checkbox" class="rest-cb" value="0.25"> <span>Pausa de Semicolcheia</span></label>
+                    </div>
+                </section>
+
+                <!-- ESTRUTURA MUSICAL -->
+                <section class="config-section">
+                    <h3>⏱ Estrutura</h3>
+                    <div class="input-row">
+                        <label for="time-signature">Compasso:</label>
+                        <select id="time-signature" class="custom-select small">
+                            <option value="2/4">2/4</option>
+                            <option value="3/4">3/4</option>
+                            <option value="4/4" selected>4/4</option>
+                        </select>
+                    </div>
+                    <div class="input-row">
+                        <label for="measure-count">Compassos:</label>
+                        <input type="number" id="measure-count" class="custom-input" value="8" min="2" max="64">
+                    </div>
+                    <div class="input-row">
+                        <label for="bpm">BPM:</label>
+                        <input type="number" id="bpm" class="custom-input" value="80" min="40" max="240">
+                    </div>
+                </section>
+
+                <!-- REPRODUÇÃO & ÁUDIO (VOLUMES INDEPENDENTES) -->
+                <section class="config-section">
+                    <h3>🎚 Reprodução & Volumes</h3>
+                    <div class="checkbox-list mb-2">
+                        <label class="styled-label"><input type="checkbox" id="use-metronome" checked> <span>Usar metrônomo</span></label>
+                    </div>
+                    <div class="input-row">
+                        <label for="count-in">Contagem:</label>
+                        <select id="count-in" class="custom-select small">
+                            <option value="0">Nenhuma</option>
+                            <option value="1" selected>1 compasso</option>
+                            <option value="2">2 compassos</option>
+                        </select>
+                    </div>
+                    <div class="volume-control-group">
+                        <div class="slider-block">
+                            <div class="slider-label"><span>🎹 Volume da Partitura</span><span id="vol-piano-val">80%</span></div>
+                            <input type="range" id="volume-piano" min="0" max="1" step="0.05" value="0.8" class="custom-slider">
+                        </div>
+                        <div class="slider-block mt-2">
+                            <div class="slider-label"><span>🥁 Volume do Metrônomo</span><span id="vol-metronome-val">50%</span></div>
+                            <input type="range" id="volume-metronome" min="0" max="1" step="0.05" value="0.5" class="custom-slider">
+                        </div>
+                    </div>
+                </section>
+            </div>
+
+            <div class="sidebar-footer">
+                <button id="btn-generate" class="btn-primary">
+                    <span class="btn-text">GERAR PARTITURA</span>
+                    <span class="spinner hidden"></span>
+                </button>
+            </div>
+        </aside>
+
+        <!-- ÁREA PRINCIPAL DA PARTITURA -->
+        <main class="main-content" id="main-content">
+            <!-- CABEÇALHO DE CONTROLES -->
+            <div class="score-header">
+                <div class="header-left">
+                    <button id="toggle-sidebar" class="btn-icon">☰ Ocultar Menu</button>
+                    <div id="score-info" class="score-info"></div>
+                </div>
+
+                <div class="header-actions">
+                    <div class="audio-controls">
+                        <button id="btn-play" class="btn-action primary">▶ Ouvir</button>
+                        <button id="btn-stop" class="btn-action">⏹ Parar</button>
+                        <button id="btn-repeat" class="btn-action">↻ Repetir</button>
+                    </div>
+
+                    <button id="btn-new" class="btn-secondary">NOVA PARTITURA</button>
+
+                    <div class="export-dropdown">
+                        <button id="btn-open-export-modal" class="btn-action">📥 Exportar ▼</button>
+                        <div id="export-menu" class="export-menu hidden">
+                            <button id="btn-menu-export-pdf">📄 Salvar PDF</button>
+                            <button id="btn-menu-export-jpeg">🖼️ Salvar JPEG</button>
+                            <button id="btn-export-audio">🎵 Salvar Áudio (.WAV)</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- STATUS E ALERTAS -->
+            <div id="error-message" class="error-message hidden"></div>
+            <div id="loading-overlay" class="loading-status hidden">
+                <div class="spinner-large"></div>
+                <span id="loading-text">Processando e renderizando partitura...</span>
+            </div>
+
+            <!-- QUADRO DA PARTITURA -->
+            <div class="score-container" id="score-container">
+                <div id="score-paper">
+                    <!-- Título dinâmico para a partitura na tela/impressão -->
+                    <div id="score-header-display" class="score-title-area">
+                        <h1 id="score-main-title">Exercício de Leitura Musical</h1>
+                        <div id="score-metadata-display" class="score-metadata"></div>
+                    </div>
+                    <div id="osmd-target-container"></div>
+                    <!-- Marca D'água no Rodapé -->
+                    <div class="watermark-footer">
+                        Solfy - gerador de exercícios de partitura
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- MODAL DE EXPORTAÇÃO PERSONALIZADA -->
+    <div id="export-modal-overlay" class="modal-overlay hidden">
+        <div class="modal-card">
+            <div class="modal-header">
+                <h3>EXPORTAR EXERCÍCIO</h3>
+                <button id="btn-close-export-modal" class="btn-close-modal">✕</button>
+            </div>
+            <div class="modal-body">
+                <div class="modal-field">
+                    <label for="export-title-input">Nome do arquivo / título da partitura:</label>
+                    <input type="text" id="export-title-input" class="custom-input full-width" value="Exercício de Leitura Musical" placeholder="Digite o título...">
+                </div>
+
+                <div class="modal-field mt-3">
+                    <label>Formato:</label>
+                    <div class="radio-group">
+                        <label class="styled-label radio-label">
+                            <input type="radio" name="export-format" value="pdf" checked> <span>PDF (Vetorial)</span>
+                        </label>
+                        <label class="styled-label radio-label">
+                            <input type="radio" name="export-format" value="jpeg"> <span>JPEG (Imagem)</span>
+                        </label>
+                    </div>
+                </div>
+
+                <div id="jpeg-res-group" class="modal-field mt-3 hidden">
+                    <label for="export-resolution">Resolução (JPEG):</label>
+                    <select id="export-resolution" class="custom-select">
+                        <option value="1280">Baixa (1280 px)</option>
+                        <option value="1920">Média (1920 px)</option>
+                        <option value="2560" selected>Alta (2560 px)</option>
+                        <option value="3840">Muito alta (3840 px)</option>
+                    </select>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button id="btn-cancel-export" class="btn-secondary">CANSELA</button>
+                <button id="btn-confirm-export" class="btn-primary">SALVAR</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
