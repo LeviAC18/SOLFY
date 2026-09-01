@@ -1,6 +1,6 @@
 /**
  * SOLFY 2.0 - ARQUITETURA DE RENDERIZAÇÃO, NOTAÇÃO E REPRODUÇÃO
- * Motor OSMD (OpenSheetMusicDisplay) + Agrupamento Rítmico + Metrônomo por Métrica + Exportação Avançada
+ * Motor OSMD (OpenSheetMusicDisplay) + Zoom Vetorial + PDF Anti-corte
  */
 
 // ==========================================
@@ -10,6 +10,7 @@ const State = {
     config: {},
     exercise: null,          // Objeto estruturado como ÚNICA FONTE DE VERDADE
     osmd: null,              // Instância do OpenSheetMusicDisplay
+    zoomLevel: 1.0,          // Escala de Zoom (1.0 = 100%)
     audioContext: null,
     isPlaying: false,
     playbackId: 0,           // Token incremental para cancelamento estrito de áudio/timers
@@ -114,7 +115,7 @@ function bindUIEvents() {
     const toggleBtn = document.getElementById('toggle-sidebar');
     toggleBtn?.addEventListener('click', () => {
         sidebar.classList.toggle('collapsed');
-        toggleBtn.innerHTML = sidebar.classList.contains('collapsed') ? '☰ Mostrar Menu' : '☰ Ocultar Menu';
+        toggleBtn.innerHTML = sidebar.classList.contains('collapsed') ? '☰ Menu' : '☰ Menu';
         setTimeout(() => {
             if (State.osmd) State.osmd.render();
         }, 300);
@@ -134,7 +135,11 @@ function bindUIEvents() {
     document.getElementById('btn-stop')?.addEventListener('click', stopAudio);
     document.getElementById('btn-repeat')?.addEventListener('click', playAudio);
 
-    // SLIDERS DE VOLUME COM ATUALIZAÇÃO EM TEMPO REAL
+    // CONTROLES DE ZOOM NATIVO OSMD (SEM REGERAR NOTAS/ÁUDIO)
+    document.getElementById('btn-zoom-in')?.addEventListener('click', () => changeZoom(0.15));
+    document.getElementById('btn-zoom-out')?.addEventListener('click', () => changeZoom(-0.15));
+
+    // SLIDERS DE VOLUME
     const pianoSlider = document.getElementById('volume-piano');
     const metronomeSlider = document.getElementById('volume-metronome');
 
@@ -159,25 +164,28 @@ function bindUIEvents() {
     });
     document.addEventListener('click', () => exportMenu?.classList.add('hidden'));
 
-    document.getElementById('btn-menu-export-pdf')?.addEventListener('click', () => openExportModal('pdf'));
-    document.getElementById('btn-menu-export-jpeg')?.addEventListener('click', () => openExportModal('jpeg'));
+    document.getElementById('btn-menu-export-pdf')?.addEventListener('click', () => openExportModal());
     document.getElementById('btn-export-audio')?.addEventListener('click', exportAudioWAV);
 
     // CONTROLES DO MODAL DE EXPORTAÇÃO
     document.getElementById('btn-close-export-modal')?.addEventListener('click', closeExportModal);
     document.getElementById('btn-cancel-export')?.addEventListener('click', closeExportModal);
     document.getElementById('btn-confirm-export')?.addEventListener('click', processModalExport);
+}
 
-    document.querySelectorAll('input[name="export-format"]').forEach(radio => {
-        radio.addEventListener('change', (e) => {
-            const jpegGroup = document.getElementById('jpeg-res-group');
-            if (e.target.value === 'jpeg') {
-                jpegGroup.classList.remove('hidden');
-            } else {
-                jpegGroup.classList.add('hidden');
-            }
-        });
-    });
+// LÓGICA DE ALTERAÇÃO DE ZOOM MANTENDO A MEMÓRIA
+function changeZoom(delta) {
+    let newZoom = State.zoomLevel + delta;
+    if (newZoom < 0.5) newZoom = 0.5;
+    if (newZoom > 2.0) newZoom = 2.0;
+
+    State.zoomLevel = Math.round(newZoom * 100) / 100;
+    document.getElementById('zoom-val').textContent = `${Math.round(State.zoomLevel * 100)}%`;
+
+    if (State.osmd) {
+        State.osmd.Zoom = State.zoomLevel;
+        State.osmd.render();
+    }
 }
 
 function updateClefUI() {
@@ -244,7 +252,7 @@ function getConfig() {
 }
 
 // ==========================================
-// 4. MOTOR MUSICAL PROCEDURAL
+// 4. MOTOR MUSICAL PROCEDURAL (INTACTO)
 // ==========================================
 
 class HarmonicGenerator {
@@ -452,7 +460,7 @@ class MelodicGenerator {
 }
 
 // ==========================================
-// 5. ADAPTADOR MUSICXML COM LIGADURA/BEAMING NATIVO
+// 5. ADAPTADOR MUSICXML (INTACTO)
 // ==========================================
 
 class ExerciseToMusicXMLAdapter {
@@ -487,7 +495,6 @@ class ExerciseToMusicXMLAdapter {
                 xml += `      <sound tempo="${exercise.bpm}"/>\n`;
             }
 
-            // Cálculo do Agrupamento Rítmico de Barras (Beams) segundo Notação Convencional
             const beamsInfo = this.calculateBeams(m.notes, exercise.timeSignature);
 
             m.notes.forEach((note, noteIdx) => {
@@ -518,15 +525,10 @@ class ExerciseToMusicXMLAdapter {
                 
                 xml += `        <type>${type}</type>\n`;
 
-                // Inserir barras de ligação (beams) para colcheias e semicolcheias
                 if (!note.isRest && beamsInfo[noteIdx]) {
                     const info = beamsInfo[noteIdx];
-                    if (info.beam1) {
-                        xml += `        <beam number="1">${info.beam1}</beam>\n`;
-                    }
-                    if (info.beam2) {
-                        xml += `        <beam number="2">${info.beam2}</beam>\n`;
-                    }
+                    if (info.beam1) xml += `        <beam number="1">${info.beam1}</beam>\n`;
+                    if (info.beam2) xml += `        <beam number="2">${info.beam2}</beam>\n`;
                 }
 
                 xml += `      </note>\n`;
@@ -540,12 +542,6 @@ class ExerciseToMusicXMLAdapter {
         return xml;
     }
 
-    /**
-     * Calcula o agrupamento métrico correto (Beaming) respeitando:
-     * - Divisão do tempo/fórmula de compasso (ex: 4/4 divide por pulso de semínima)
-     * - Pausas interrompem o agrupamento
-     * - Não agrupa através da barra de compasso
-     */
     static calculateBeams(notes, timeSignature) {
         const [beatsStr, beatTypeStr] = timeSignature.split('/');
         const beatType = parseInt(beatTypeStr);
@@ -571,7 +567,6 @@ class ExerciseToMusicXMLAdapter {
                 beamInfo[idx].beam1 = isFirst ? 'begin' : (isLast ? 'end' : 'continue');
             }
 
-            // Agrupamento secundário para semicolcheias (Beam 2)
             let sixteenthGroup = [];
             function process16thGroup(sGroup) {
                 if (sGroup.length < 2) return;
@@ -597,7 +592,7 @@ class ExerciseToMusicXMLAdapter {
 
         for (let i = 0; i < noteRanges.length; i++) {
             let nr = noteRanges[i];
-            let isBeamable = !nr.isRest && nr.duration <= 2; // Apenas colcheias e semicolcheias
+            let isBeamable = !nr.isRest && nr.duration <= 2;
 
             if (!isBeamable) {
                 processGroup(currentGroup);
@@ -611,7 +606,6 @@ class ExerciseToMusicXMLAdapter {
                 let prevBeat = Math.floor(prevNr.start / sixteenthsPerBeat);
                 let currBeat = Math.floor(nr.start / sixteenthsPerBeat);
 
-                // Romper o agrupamento se mudar de tempo do compasso (subdivisão métrica)
                 if (currBeat !== prevBeat) {
                     processGroup(currentGroup);
                     currentGroup = [];
@@ -657,18 +651,11 @@ function generateAndRenderScore() {
 
 function updateScoreHeaderDisplay() {
     const keySelect = document.getElementById('key-signature');
-    const diffSelect = document.getElementById('difficulty');
-    
-    // Atualizar badge superior
-    document.getElementById('score-info').innerHTML = `
-        <span>🎵 ${keySelect.options[keySelect.selectedIndex].text}</span>
-        <span>🎯 ${diffSelect.options[diffSelect.selectedIndex].text.split(' ')[0]}</span>
-        <span>⏱ ${State.config.timeSignature}</span>
-        <span>🎚 ${State.config.bpm} BPM</span>
-        <span>📏 ${State.config.measures} Comp.</span>
-    `;
 
-    // Atualizar título interno e metadados no topo da partitura
+    // Cabeçalho minimalista
+    document.getElementById('score-info').textContent = "Exercício de Leitura";
+
+    // Metadados na própria partitura impressa
     document.getElementById('score-main-title').textContent = State.exercise.title || "Exercício de Leitura Musical";
     document.getElementById('score-metadata-display').textContent = 
         `${keySelect.options[keySelect.selectedIndex].text} • Compasso ${State.config.timeSignature} • BPM ${State.config.bpm} • Clave de ${State.config.clef === 'sol' ? 'Sol' : 'Fá'}`;
@@ -694,6 +681,9 @@ function renderScoreFromExercise() {
             });
         }
 
+        // Aplicar o zoom retido no estado global do aplicativo
+        State.osmd.Zoom = State.zoomLevel;
+
         State.osmd.load(xmlString).then(() => {
             State.osmd.render();
             if (State.osmd.cursor) {
@@ -711,7 +701,7 @@ function renderScoreFromExercise() {
 }
 
 // ==========================================
-// 7. SISTEMA DE ÁUDIO & METRÔNOMO MATEMATICAMENTE PRECISO
+// 7. SISTEMA DE ÁUDIO & METRÔNOMO (INTACTO)
 // ==========================================
 
 function initAudioContext() {
@@ -726,13 +716,11 @@ function initAudioContext() {
 
 function stopAudio() {
     State.isPlaying = false;
-    State.playbackId++; // Invalida qualquer evento agendado anterior
+    State.playbackId++;
 
-    // Cancelar todos os timeouts JS
     State.scheduledEvents.forEach(id => clearTimeout(id));
     State.scheduledEvents = [];
 
-    // Interromper imediatamente todos os osciladores/nós de áudio ativos
     State.activeAudioNodes.forEach(node => {
         try {
             if (node.stop) node.stop();
@@ -741,7 +729,6 @@ function stopAudio() {
     });
     State.activeAudioNodes = [];
 
-    // Ocultar cursor do OSMD
     if (State.osmd && State.osmd.cursor) {
         State.osmd.cursor.hide();
     }
@@ -760,7 +747,6 @@ function playAudio() {
     const [beatsStr] = State.exercise.timeSignature.split('/');
     const beatsPerMeasure = parseInt(beatsStr);
 
-    // Reiniciar Cursor OSMD
     if (State.osmd.cursor) {
         State.osmd.cursor.show();
         State.osmd.cursor.reset();
@@ -768,7 +754,6 @@ function playAudio() {
 
     let startTime = State.audioContext.currentTime + 0.15;
 
-    // 1. CONTAGEM INICIAL (METRÔNOMO EXATO)
     const countInBeats = State.config.countIn * beatsPerMeasure;
     if (countInBeats > 0) {
         for (let i = 0; i < countInBeats; i++) {
@@ -779,20 +764,18 @@ function playAudio() {
         startTime += countInBeats * beatDuration;
     }
 
-    // 2. METRÔNOMO EM TODOS OS TEMPOS (INDEPENDENTE DAS NOTAS)
     const totalMeasures = State.exercise.measures.length;
     if (State.config.useMetronome) {
         for (let m = 0; m < totalMeasures; m++) {
             let measureStartTime = startTime + (m * beatsPerMeasure * beatDuration);
             for (let b = 0; b < beatsPerMeasure; b++) {
                 let clickTime = measureStartTime + (b * beatDuration);
-                let isAccent = (b === 0); // 1º tempo forte/agudo ("CLACK")
+                let isAccent = (b === 0);
                 scheduleMetronomeClick(clickTime, isAccent, currentPlaybackId);
             }
         }
     }
 
-    // 3. REPRODUÇÃO DO PIANO E LINHA DO TEMPO
     let currentTimeOffset = 0;
     let stepCounter = 0;
 
@@ -805,7 +788,6 @@ function playAudio() {
                 schedulePianoTone(noteTime, note.midi, noteDurationSec, currentPlaybackId);
             }
 
-            // Sincronização exata da Timeline com o modelo musical
             let currentStep = stepCounter;
             let timeoutMs = (noteTime - State.audioContext.currentTime) * 1000;
 
@@ -823,7 +805,6 @@ function playAudio() {
         });
     });
 
-    // Finalizar reprodução ao término
     let totalDurationMs = (startTime + currentTimeOffset - State.audioContext.currentTime) * 1000;
     let endTimer = setTimeout(() => {
         if (State.playbackId === currentPlaybackId) {
@@ -895,7 +876,7 @@ function scheduleMetronomeClick(time, isAccent, playbackId) {
     const volume = State.config.volumeMetronome ?? 0.5;
 
     osc.type = isAccent ? 'triangle' : 'sine';
-    osc.frequency.setValueAtTime(isAccent ? 1200 : 800, time); // 1200 Hz para o tempo 1 (mais agudo/destacado)
+    osc.frequency.setValueAtTime(isAccent ? 1200 : 800, time);
 
     gain.gain.setValueAtTime(0, time);
     gain.gain.linearRampToValueAtTime((isAccent ? 0.7 : 0.4) * volume, time + 0.005);
@@ -911,25 +892,15 @@ function scheduleMetronomeClick(time, isAccent, playbackId) {
 }
 
 // ==========================================
-// 8. MODAL DE EXPORTAÇÃO PERSONALIZADA
+// 8. MODAL E EXPORTAÇÃO (SOMENTE PDF E WAV)
 // ==========================================
 
-function openExportModal(defaultFormat = 'pdf') {
+function openExportModal() {
     const modal = document.getElementById('export-modal-overlay');
     const titleInput = document.getElementById('export-title-input');
-    const jpegGroup = document.getElementById('jpeg-res-group');
 
     if (State.exercise) {
         titleInput.value = State.exercise.title || "Exercício de Leitura Musical";
-    }
-
-    const formatRadio = document.querySelector(`input[name="export-format"][value="${defaultFormat}"]`);
-    if (formatRadio) formatRadio.checked = true;
-
-    if (defaultFormat === 'jpeg') {
-        jpegGroup.classList.remove('hidden');
-    } else {
-        jpegGroup.classList.add('hidden');
     }
 
     modal.classList.add('active');
@@ -944,41 +915,31 @@ function closeExportModal() {
 
 function processModalExport() {
     const customTitle = document.getElementById('export-title-input').value.trim() || "Exercício de Leitura Musical";
-    const format = document.querySelector('input[name="export-format"]:checked').value;
-    const resPx = parseInt(document.getElementById('export-resolution').value) || 2560;
 
-    // Atualizar título sem alterar o exercício existente
     State.exercise.title = customTitle;
     State.currentTitle = customTitle;
     updateScoreHeaderDisplay();
 
     closeExportModal();
-
-    if (format === 'pdf') {
-        exportPDF(customTitle);
-    } else if (format === 'jpeg') {
-        exportJPEG(customTitle, resPx);
-    }
+    exportPDF(customTitle);
 }
-
-// ==========================================
-// 9. EXPORTAÇÃO (PDF, JPEG COM DIVISÃO E WAV)
-// ==========================================
 
 function exportPDF(title) {
     const element = document.getElementById('score-paper');
     if (!element) return;
 
-    setLoading(true, "Gerando PDF de alta qualidade...");
+    setLoading(true, "Gerando PDF sem cortes de pauta...");
 
     const filename = `${title.replace(/[^a-zA-Z0-9\s-_]/g, '')}.pdf`;
 
+    // Configuração com proteção estrita para não cortar pautas/sistemas no meio
     const opt = {
         margin:       [10, 10, 10, 10],
         filename:     filename,
         image:        { type: 'jpeg', quality: 0.98 },
         html2canvas:  { scale: 2, useCORS: true, logging: false },
-        jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
+        jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' },
+        pagebreak:    { mode: ['css', 'legacy'], avoid: ['svg', 'g', '.vf-system'] }
     };
 
     html2pdf().set(opt).from(element).save().then(() => {
@@ -988,99 +949,6 @@ function exportPDF(title) {
         setLoading(false);
         showError("Não foi possível salvar o PDF.");
     });
-}
-
-function exportJPEG(title, targetWidthPx = 2560) {
-    const svgElements = document.querySelectorAll('#osmd-target-container svg');
-    if (!svgElements || svgElements.length === 0) {
-        showError("Nenhuma partitura encontrada para exportar.");
-        return;
-    }
-
-    setLoading(true, "Processando imagem JPEG...");
-
-    setTimeout(() => {
-        try {
-            const sanitizedTitle = title.replace(/[^a-zA-Z0-9\s-_]/g, '');
-            const totalMeasures = State.exercise.measures.length;
-
-            // Se o exercício for longo (> 20 compassos), dividir em partes sequenciais sem cortar compassos
-            const MAX_MEASURES_PER_IMAGE = 20;
-            const needsSplitting = totalMeasures > MAX_MEASURES_PER_IMAGE;
-
-            if (!needsSplitting) {
-                renderAndDownloadJPEGChunk(title, document.getElementById('score-paper'), `${sanitizedTitle}.jpg`, targetWidthPx);
-            } else {
-                const totalParts = Math.ceil(totalMeasures / MAX_MEASURES_PER_IMAGE);
-                
-                for (let part = 1; part <= totalParts; part++) {
-                    const startM = (part - 1) * MAX_MEASURES_PER_IMAGE + 1;
-                    const endM = Math.min(part * MAX_MEASURES_PER_IMAGE, totalMeasures);
-                    const partTitle = `${title} (Parte ${part} - Compassos ${startM} a ${endM})`;
-                    const filename = `${sanitizedTitle}_Parte_${part}.jpg`;
-
-                    renderAndDownloadJPEGChunk(partTitle, document.getElementById('score-paper'), filename, targetWidthPx);
-                }
-            }
-        } catch (err) {
-            console.error("Erro no JPEG:", err);
-            showError("Erro ao exportar a partitura como JPEG.");
-        } finally {
-            setLoading(false);
-        }
-    }, 150);
-}
-
-function renderAndDownloadJPEGChunk(chunkTitle, scoreElement, filename, targetWidthPx) {
-    const canvas = document.createElement('canvas');
-    const ctx = canvas.getContext('2d');
-
-    const rect = scoreElement.getBoundingClientRect();
-    const width = rect.width || 800;
-    const height = rect.height || 600;
-
-    const scale = targetWidthPx / width;
-    canvas.width = targetWidthPx;
-    canvas.height = height * scale;
-
-    ctx.fillStyle = '#ffffff';
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-    ctx.scale(scale, scale);
-
-    const svgDataArr = Array.from(scoreElement.querySelectorAll('svg')).map(svg => {
-        return new XMLSerializer().serializeToString(svg);
-    });
-
-    // Renderizar conteúdo HTML do quadro da partitura no canvas
-    const data = `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}">
-        <foreignObject width="100%" height="100%">
-            <div xmlns="http://www.w3.org/1999/xhtml" style="background:#fff; font-family:Poppins, sans-serif; padding:15px;">
-                <div style="text-align:center; font-weight:bold; font-size:18px; text-transform:uppercase; margin-bottom:8px;">${chunkTitle}</div>
-                ${scoreElement.querySelector('.score-metadata')?.outerHTML || ''}
-                <div style="margin-top:15px;">${svgDataArr.join('')}</div>
-                <div style="text-align:center; margin-top:20px; font-size:11px; color:#94a3b8; font-style:italic;">Solfy - gerador de exercícios de partitura</div>
-            </div>
-        </foreignObject>
-    </svg>`;
-
-    const img = new Image();
-    const svgBlob = new Blob([data], { type: 'image/svg+xml;charset=utf-8' });
-    const url = URL.createObjectURL(svgBlob);
-
-    img.onload = () => {
-        ctx.drawImage(img, 0, 0);
-        URL.revokeObjectURL(url);
-
-        const jpegUrl = canvas.toDataURL('image/jpeg', 0.95);
-        const downloadLink = document.createElement('a');
-        downloadLink.href = jpegUrl;
-        downloadLink.download = filename;
-        document.body.appendChild(downloadLink);
-        downloadLink.click();
-        document.body.removeChild(downloadLink);
-    };
-
-    img.src = url;
 }
 
 function exportAudioWAV() {
