@@ -26,10 +26,10 @@
     <div id="sidebar-overlay" class="sidebar-overlay"></div>
 
     <div class="app-container">
-        <!-- BARRA LATERAL DE CONFIGURAÇÕES -->
+        <!-- BARRA LATERAL DE CONFIGURAÇÕES (PRESERVADA INTEGRALMENTE) -->
         <aside class="sidebar" id="sidebar">
             <div class="sidebar-header">
-                <h2>SOLFY </h2>
+                <h2>SOLFY</h2>
                 <button id="close-sidebar" class="mobile-only" aria-label="Fechar Opções">✕</button>
             </div>
 
@@ -153,7 +153,7 @@
                     </div>
                 </section>
 
-                <!-- REPRODUÇÃO & ÁUDIO (VOLUMES INDEPENDENTES) -->
+                <!-- REPRODUÇÃO & ÁUDIO -->
                 <section class="config-section">
                     <h3>🎚 Reprodução & Volumes</h3>
                     <div class="checkbox-list mb-2">
@@ -190,27 +190,33 @@
 
         <!-- ÁREA PRINCIPAL DA PARTITURA -->
         <main class="main-content" id="main-content">
-            <!-- CABEÇALHO DE CONTROLES -->
+            <!-- CABEÇALHO DE CONTROLES REDUZIDO E SLIM -->
             <div class="score-header">
                 <div class="header-left">
-                    <button id="toggle-sidebar" class="btn-icon">☰ Ocultar Menu</button>
-                    <div id="score-info" class="score-info"></div>
+                    <button id="toggle-sidebar" class="btn-icon">☰ Menu</button>
+                    <div id="score-info" class="score-info-compact">Exercício de Leitura</div>
                 </div>
 
                 <div class="header-actions">
+                    <!-- CONTROLES DE ZOOM NATIVO OSMD -->
+                    <div class="zoom-controls">
+                        <button id="btn-zoom-out" class="btn-zoom" title="Diminuir Zoom">−</button>
+                        <span id="zoom-val" class="zoom-display">100%</span>
+                        <button id="btn-zoom-in" class="btn-zoom" title="Aumentar Zoom">+</button>
+                    </div>
+
                     <div class="audio-controls">
                         <button id="btn-play" class="btn-action primary">▶ Ouvir</button>
                         <button id="btn-stop" class="btn-action">⏹ Parar</button>
                         <button id="btn-repeat" class="btn-action">↻ Repetir</button>
                     </div>
 
-                    <button id="btn-new" class="btn-secondary">NOVA PARTITURA</button>
+                    <button id="btn-new" class="btn-secondary">NOVA</button>
 
                     <div class="export-dropdown">
                         <button id="btn-open-export-modal" class="btn-action">📥 Exportar ▼</button>
                         <div id="export-menu" class="export-menu hidden">
                             <button id="btn-menu-export-pdf">📄 Salvar PDF</button>
-                            <button id="btn-menu-export-jpeg">🖼️ Salvar JPEG</button>
                             <button id="btn-export-audio">🎵 Salvar Áudio (.WAV)</button>
                         </div>
                     </div>
@@ -224,16 +230,14 @@
                 <span id="loading-text">Processando e renderizando partitura...</span>
             </div>
 
-            <!-- QUADRO DA PARTITURA -->
+            <!-- QUADRO DA PARTITURA COM VIEWPORT INTERNO PARA SCROLL DA PARTITURA -->
             <div class="score-container" id="score-container">
                 <div id="score-paper">
-                    <!-- Título dinâmico para a partitura na tela/impressão -->
                     <div id="score-header-display" class="score-title-area">
                         <h1 id="score-main-title">Exercício de Leitura Musical</h1>
                         <div id="score-metadata-display" class="score-metadata"></div>
                     </div>
                     <div id="osmd-target-container"></div>
-                    <!-- Marca D'água no Rodapé -->
                     <div class="watermark-footer">
                         Solfy - gerador de exercícios de partitura
                     </div>
@@ -242,7 +246,7 @@
         </main>
     </div>
 
-    <!-- MODAL DE EXPORTAÇÃO PERSONALIZADA -->
+    <!-- MODAL DE EXPORTAÇÃO PERSONALIZADA (SOMENTE PDF E ÁUDIO) -->
     <div id="export-modal-overlay" class="modal-overlay hidden">
         <div class="modal-card">
             <div class="modal-header">
@@ -254,32 +258,10 @@
                     <label for="export-title-input">Nome do arquivo / título da partitura:</label>
                     <input type="text" id="export-title-input" class="custom-input full-width" value="Exercício de Leitura Musical" placeholder="Digite o título...">
                 </div>
-
-                <div class="modal-field mt-3">
-                    <label>Formato:</label>
-                    <div class="radio-group">
-                        <label class="styled-label radio-label">
-                            <input type="radio" name="export-format" value="pdf" checked> <span>PDF (Vetorial)</span>
-                        </label>
-                        <label class="styled-label radio-label">
-                            <input type="radio" name="export-format" value="jpeg"> <span>JPEG (Imagem)</span>
-                        </label>
-                    </div>
-                </div>
-
-                <div id="jpeg-res-group" class="modal-field mt-3 hidden">
-                    <label for="export-resolution">Resolução (JPEG):</label>
-                    <select id="export-resolution" class="custom-select">
-                        <option value="1280">Baixa (1280 px)</option>
-                        <option value="1920">Média (1920 px)</option>
-                        <option value="2560" selected>Alta (2560 px)</option>
-                        <option value="3840">Muito alta (3840 px)</option>
-                    </select>
-                </div>
             </div>
             <div class="modal-footer">
-                <button id="btn-cancel-export" class="btn-secondary">CANSELA</button>
-                <button id="btn-confirm-export" class="btn-primary">SALVAR</button>
+                <button id="btn-cancel-export" class="btn-secondary">CANCELAR</button>
+                <button id="btn-confirm-export" class="btn-primary">SALVAR PDF</button>
             </div>
         </div>
     </div>
